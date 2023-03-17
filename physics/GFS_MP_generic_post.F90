@@ -20,7 +20,8 @@
 !> @{
       subroutine GFS_MP_generic_post_run(                                                                                 &
         im, levs, kdt, nrcm, nncl, ntcw, ntrac, imp_physics, imp_physics_gfdl, imp_physics_thompson, imp_physics_nssl,    &
-        imp_physics_mg, imp_physics_fer_hires, cal_pre, cplflx, cplchm, cpllnd, progsigma, con_g, rhowater, rainmin, dtf, &
+        imp_physics_mg, imp_physics_fer_hires, imp_physics_ufs, cal_pre, cplflx, cplchm, cpllnd, progsigma,               &
+        con_g, rhowater, rainmin, dtf,                                                                                    &
         frain, rainc, rain1, rann, xlat, xlon, gt0, gq0, prsl, prsi, phii, tsfc, ice, snow, graupel, save_t, save_q,      &
         rain0, ice0, snow0, graupel0, del, rain, domr_diag, domzr_diag, domip_diag, doms_diag, tprcp, srflag, sr, cnvprcp,&
         totprcp, totice, totsnw, totgrp, cnvprcpb, totprcpb, toticeb, totsnwb, totgrpb, rain_cpl, rainc_cpl, snow_cpl,    &
@@ -37,7 +38,7 @@
 
       integer, intent(in) :: im, levs, kdt, nrcm, nncl, ntcw, ntrac, num_dfi_radar, index_of_process_dfi_radar
       integer, intent(in) :: imp_physics, imp_physics_gfdl, imp_physics_thompson, imp_physics_mg, imp_physics_fer_hires
-      integer, intent(in) :: imp_physics_nssl
+      integer, intent(in) :: imp_physics_nssl, imp_physics_ufs
       logical, intent(in) :: cal_pre, lssav, ldiag3d, qdiag3d, cplflx, cplchm, cpllnd, progsigma, exticeden
       integer, intent(in) :: index_of_temperature,index_of_process_mp
 
@@ -202,6 +203,11 @@
         snow    = snow0
       ! Do it right from the beginning for Thompson
       else if (imp_physics == imp_physics_thompson .or. imp_physics == imp_physics_nssl ) then
+        tprcp   = max (zero, rainc + frain * rain1) ! time-step convective and explicit precip
+        graupel = frain*graupel0              ! time-step graupel
+        ice     = frain*ice0                  ! time-step ice
+        snow    = frain*snow0                 ! time-step snow
+      else if (imp_physics == imp_physics_ufs) then
         tprcp   = max (zero, rainc + frain * rain1) ! time-step convective and explicit precip
         graupel = frain*graupel0              ! time-step graupel
         ice     = frain*ice0                  ! time-step ice

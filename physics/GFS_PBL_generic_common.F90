@@ -12,6 +12,7 @@
       contains
 
       subroutine set_aerosol_tracer_index(imp_physics, imp_physics_wsm6,          &
+                                          imp_physics_ufs,                        &
                                           imp_physics_thompson, ltaerosol,mraerosol,   &
                                           imp_physics_mg, ntgl, imp_physics_gfdl, &
                                           imp_physics_zhao_carr, imp_physics_nssl,&
@@ -20,7 +21,7 @@
       implicit none
       !
       integer, intent(in )          :: imp_physics, imp_physics_wsm6,          &
-                                       imp_physics_thompson,                   &
+                                       imp_physics_thompson, imp_physics_ufs,  &
                                        imp_physics_mg, ntgl, imp_physics_gfdl, &
                                        imp_physics_zhao_carr,imp_physics_nssl
       logical, intent(in )          :: ltaerosol, mraerosol, nssl_hail_on, nssl_ccn_on
@@ -53,6 +54,9 @@
       elseif (imp_physics == imp_physics_gfdl) then
 ! GFDL MP
         kk = 7
+      elseif (imp_physics == imp_physics_ufs) then
+! UFS MP
+        kk = 10
       elseif (imp_physics == imp_physics_zhao_carr) then
 ! Zhao/Carr/Sundqvist
         kk = 3
