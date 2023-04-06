@@ -245,6 +245,13 @@
   dimensions = ()
   type = integer
   intent = in
+[imp_physics_ufs]
+  standard_name = flag_for_ufs_microphysics_scheme
+  long_name = choice of UFS microphysics scheme
+  units = flag
+  dimensions = ()
+  type = integer
+  intent = in
 [imp_physics_zhao_carr]
   standard_name = identifier_for_zhao_carr_microphysics_scheme
   long_name = choice of Zhao-Carr microphysics scheme

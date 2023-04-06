@@ -24,6 +24,7 @@
         ntdu1, ntdu2, ntdu3, ntdu4, ntdu5, ntss1, ntss2,                       &
         ntss3, ntss4, ntss5, ntsu, ntbcb, ntbcl, ntocb, ntocl, ntchm,          &
         imp_physics,imp_physics_nssl, nssl_ccn_on, nssl_invertccn,             &
+        imp_physics_ufs,                                                       &
         imp_physics_thompson, imp_physics_gfdl, imp_physics_zhao_carr,         &
         imp_physics_zhao_carr_pdf, imp_physics_mg, imp_physics_wsm6,           &
         imp_physics_fer_hires, iovr_rand, iovr_maxrand, iovr_max, iovr_dcorr,  &
@@ -71,6 +72,9 @@
      &                                     proflw_type, NBDLW
       use surface_perturbation,      only: cdfnor,ppfbet
 
+      ! For ufs MP
+      use mp_ufs,             only: ufs_mp_effective_radius
+
       ! For Thompson MP
       use module_mp_thompson,        only: calc_effectRad, Nt_c,     &
                                            re_qc_min, re_qc_max,     &
@@ -93,6 +97,7 @@
                                            ntclamt, nleffr, nieffr, nseffr,    &
                                            lndp_type,                          &
                                            kdt, imp_physics,                   &
+                                           imp_physics_ufs,                    &
                                            imp_physics_thompson,               &
                                            imp_physics_gfdl,                   &
                                            imp_physics_zhao_carr,              &
@@ -722,6 +727,20 @@
               endif
             enddo
           enddo
+          ! for ufs  MP - prepare variables for calc_effr
+          if (imp_physics == imp_physics_ufs) then
+            do k=1,LMK
+              do i=1,IM
+                rho   (i,k) = con_eps*plyr(i,k)*100./(con_rd*tlyr(i,k)*(qv_mp(i,k)+con_eps))
+                qvs = qlyr(i,k)
+                qv_mp (i,k) = qvs/(1.-qvs)
+                qc_mp (i,k) = tracer1(i,k,ntcw)/(1.-qvs)
+                qi_mp (i,k) = tracer1(i,k,ntiw)/(1.-qvs)
+                qs_mp (i,k) = tracer1(i,k,ntsw)/(1.-qvs)
+                nc_mp (i,k) = tracer1(i,k,ntlnc)/(1.-qvs)
+              enddo
+            enddo
+          endif
           ! for Thompson MP - prepare variables for calc_effr
           if_thompson: if (imp_physics == imp_physics_thompson .and. ltaerosol) then
             do k=1,LMK
@@ -904,6 +923,24 @@
               effrs_inout(i,k) = effrs(i,k1)
             enddo
           enddo
+        elseif (imp_physics == imp_physics_ufs) then  !  ufs MP
+          !
+          ! Update number concentration, consistent with sub-grid clouds
+            !call ufs_mp_effective_radius (tlyr(i,:), qc_mp(i,:),
+            !qi_mp(i,:), qs_mp(i,:),  &
+            !             rho(i,:), 1.e-15, 273.15, &
+            !             nc_mp(i,:), &
+            !             effrl(i,:), effri(i,:), effrs(i,:), 1, lm, i,
+            !             i)
+           do k=1,lm
+             k1 = k + kd
+             do i=1,im
+               effrl(i,k1) = effrl_inout(i,k)! re_cloud (i,k)
+               effri(i,k1) = effri_inout(i,k)! re_ice (i,k)
+               effrs(i,k1) = effrs_inout(i,k)! re_snow(i,k)
+             enddo
+           enddo
+          effrr(:,:) = 1000. ! rrain_def=1000.
         else                                                           ! all other cases
           cldcov = 0.0
         endif
@@ -955,7 +992,8 @@
      &       xlat, xlon, slmsk, dz, delp, IM, LM, LMK, LMP,             &
      &       deltaq, sup, me, icloud, kdt,                              &
      &       ntrac, ntcw, ntiw, ntrw, ntsw, ntgl, ntclamt,              &
-     &       imp_physics, imp_physics_nssl, imp_physics_fer_hires,      &
+     &       imp_physics, imp_physics_ufs,                              &
+     &       imp_physics_nssl, imp_physics_fer_hires,                   &
      &       imp_physics_gfdl, imp_physics_thompson, imp_physics_wsm6,  &
      &       imp_physics_zhao_carr, imp_physics_zhao_carr_pdf,          &
      &       imp_physics_mg, iovr_rand, iovr_maxrand, iovr_max,         &

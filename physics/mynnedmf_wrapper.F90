@@ -110,6 +110,7 @@ SUBROUTINE mynnedmf_wrapper_run(        &
      &  qgrs_ice_cloud,                 &
      &  qgrs_cloud_droplet_num_conc,    &
      &  qgrs_cloud_ice_num_conc,        &
+     &  qgrs_cloud_rain_num_conc,       &
      &  qgrs_ozone,                     &
      &  qgrs_water_aer_num_conc,        &
      &  qgrs_ice_aer_num_conc,          &
@@ -145,6 +146,7 @@ SUBROUTINE mynnedmf_wrapper_run(        &
      &  dqdt_water_vapor,            dqdt_liquid_cloud,    & ! <=== ntqv, ntcw
      &  dqdt_ice_cloud,              dqdt_ozone,           & ! <=== ntiw, ntoz
      &  dqdt_cloud_droplet_num_conc, dqdt_ice_num_conc,    & ! <=== ntlnc, ntinc
+     &  dqdt_rain_num_conc,                                & ! <=== ntrnc for ufs mp
      &  dqdt_water_aer_num_conc,     dqdt_ice_aer_num_conc,& ! <=== ntwa, ntia
      &  dqdt_cccn,                                         & ! <=== ntccn
      &  flag_for_pbl_generic_tend,                         &
@@ -159,10 +161,10 @@ SUBROUTINE mynnedmf_wrapper_run(        &
      &  bl_mynn_cloudmix,      bl_mynn_mixqt,              &
      &  bl_mynn_output,        bl_mynn_closure,            &
      &  icloud_bl, do_mynnsfclay,                          &
-     &  imp_physics, imp_physics_gfdl,                     &
+     &  imp_physics, imp_physics_gfdl, imp_physics_ufs,    &
      &  imp_physics_thompson, imp_physics_wsm6,            &
-     &  chem3d, frp, mix_chem, rrfs_smoke, fire_turb, nchem, ndvel, &
      &  imp_physics_nssl, nssl_ccn_on,                     &
+     &  chem3d, frp, mix_chem, rrfs_smoke, fire_turb, nchem, ndvel, &
      &  ltaerosol, spp_wts_pbl, spp_pbl, lprnt, huge, errmsg, errflg  )
 
 ! should be moved to inside the mynn:
@@ -207,7 +209,7 @@ SUBROUTINE mynnedmf_wrapper_run(        &
      &       bl_mynn_output,                                &
      &       imp_physics, imp_physics_wsm6,                 &
      &       imp_physics_thompson, imp_physics_gfdl,        &
-     &       imp_physics_nssl,                              &
+     &       imp_physics_nssl, imp_physics_ufs,             &
      &       spp_pbl
       real, intent(in) ::                                   &
      &       bl_mynn_closure
@@ -249,6 +251,7 @@ SUBROUTINE mynnedmf_wrapper_run(        &
      &        dtdt, dudt, dvdt,                                          &
      &        dqdt_water_vapor, dqdt_liquid_cloud, dqdt_ice_cloud,       &
      &        dqdt_cloud_droplet_num_conc, dqdt_ice_num_conc,            &
+     &        dqdt_rain_num_conc,                                        &
      &        dqdt_ozone, dqdt_water_aer_num_conc, dqdt_ice_aer_num_conc
       real(kind=kind_phys), dimension(:,:), intent(inout) ::dqdt_cccn
       real(kind=kind_phys), dimension(:,:), intent(inout) ::             &
@@ -268,6 +271,7 @@ SUBROUTINE mynnedmf_wrapper_run(        &
      &        exner,prsl,                                                &
      &        qgrs_cloud_droplet_num_conc,                               &
      &        qgrs_cloud_ice_num_conc,                                   &
+     &        qgrs_cloud_rain_num_conc,                                  &
      &        qgrs_ozone,                                                &
      &        qgrs_water_aer_num_conc,                                   &
      &        qgrs_ice_aer_num_conc
@@ -417,6 +421,32 @@ SUBROUTINE mynnedmf_wrapper_run(        &
               qni(i,k)   = 0.
               qnwfa(i,k) = 0.
               qnifa(i,k) = 0.
+            enddo
+          enddo
+        elseif (imp_physics == imp_physics_ufs ) then
+         FLAG_QI = .true.
+         FLAG_QNI= .false.
+         FLAG_QC = .true.
+         FLAG_QNC= .true.
+         FLAG_QNWFA= .true. ! ERM: Perhaps could use this field for CCN field?
+         FLAG_QNIFA= .true. ! for rain-water number concentartion
+         p_qc = 2
+         p_qr = 0
+         p_qi = 2
+         p_qs = 0
+         p_qg = 0
+         p_qnc= 0
+         p_qni= 0
+         do k=1,levs
+            do i=1,im
+              sqv(i,k)   = qgrs_water_vapor(i,k)
+              sqc(i,k)   = qgrs_liquid_cloud(i,k)
+              sqi(i,k)   = qgrs_ice_cloud(i,k)
+              ozone(i,k) = qgrs_ozone(i,k)
+              qnc(i,k)   = qgrs_cloud_droplet_num_conc(i,k)
+              qni(i,k)   = 0.
+              qnwfa(i,k) = qgrs_cccn(i,k)
+              qnifa(i,k) = qgrs_cloud_rain_num_conc(i,k)
             enddo
           enddo
         elseif (imp_physics == imp_physics_nssl ) then
@@ -890,6 +920,18 @@ SUBROUTINE mynnedmf_wrapper_run(        &
              !  enddo
              !enddo
            endif !end thompson choice
+        elseif (imp_physics == imp_physics_nssl) then
+           ! UFS MP
+             do k=1,levs
+               do i=1,im
+                 dqdt_water_vapor(i,k)             = RQVBLTEN(i,k) !/(1.0 + qv(i,k))
+                 dqdt_liquid_cloud(i,k)            = RQCBLTEN(i,k) !/(1.0 + qv(i,k))
+                 dqdt_ice_cloud(i,k)               = RQIBLTEN(i,k) !/(1.0 + qv(i,k))
+                 dqdt_cloud_droplet_num_conc(i,k)  = RQNCBLTEN(i,k)
+                 dqdt_cccn(i,k)                    = RQNWFABLTEN(i,k)
+                 dqdt_rain_num_conc(i,k)           = RQNIFABLTEN(i,k)
+               enddo
+             enddo
         elseif (imp_physics == imp_physics_nssl) then
            ! NSSL
              do k=1,levs

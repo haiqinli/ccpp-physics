@@ -327,6 +327,14 @@
   type = real
   kind = kind_phys
   intent = in
+[qgrs_cloud_rain_num_conc]
+  standard_name = mass_number_concentration_of_rain_water_in_air
+  long_name = rain number concentration
+  units = kg-1
+  dimensions = (horizontal_dimension,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  intent = inout
 [qgrs_ozone]
   standard_name = ozone_mixing_ratio
   long_name = ozone mixing ratio
@@ -1049,6 +1057,14 @@
   type = real
   kind = kind_phys
   intent = inout
+[dqdt_rain_num_conc]
+  standard_name = process_split_cumulative_tendency_of_mass_number_concentration_of_rain_water_particles_in_air
+  long_name = number concentration of rain tendency due to model physics
+  units = kg-1 s-1
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  intent = inout
 [dqdt_water_aer_num_conc]
   standard_name = process_split_cumulative_tendency_of_mass_number_concentration_of_hygroscopic_aerosols
   long_name = number conc. of water-friendly aerosols tendency due to model physics
@@ -1325,6 +1341,13 @@
 [imp_physics_wsm6]
   standard_name = identifier_for_wsm6_microphysics_scheme
   long_name = choice of WSM6 microphysics scheme
+  units = flag
+  dimensions = ()
+  type = integer
+  intent = in
+[imp_physics_ufs]
+  standard_name = flag_for_ufs_microphysics_scheme
+  long_name = choice of UFS microphysics scheme
   units = flag
   dimensions = ()
   type = integer
