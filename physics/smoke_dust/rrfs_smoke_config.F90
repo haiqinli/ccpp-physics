@@ -26,7 +26,7 @@ module rrfs_smoke_config
   integer :: plumerisefire_frq=60
   integer :: wetdep_ls_opt = 1
   integer :: drydep_opt  = 1
-  integer :: coarsepm_settling = 1
+  integer :: pm_settling = 1
   logical :: bb_dcycle   = .false.
   logical :: aero_ind_fdb = .false.
   logical :: dbg_opt     = .true.

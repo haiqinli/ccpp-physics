@@ -151,6 +151,13 @@
   dimensions = ()
   type = logical
   intent = in
+[do_wetrm_thmp]
+  standard_name = do_aerosol_wet_removal_thompson
+  long_name = flag for wet removal of aerosols in Thompson MP
+  units = flag
+  dimensions = ()
+  type = logical
+  intent = in
 [nc]
   standard_name = mass_number_concentration_of_cloud_liquid_water_particles_in_air
   long_name = cloud droplet number concentration
@@ -400,6 +407,21 @@
   long_name = rain number concentration
   units = kg-1
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  intent = inout
+[ndvel]
+  standard_name = number_of_chemical_species_deposited
+  long_name = number of chemical pbl deposited
+  units = count
+  dimensions = ()
+  type = integer
+  intent = in
+[chem3d]
+  standard_name = chem3d_mynn_pbl_transport
+  long_name = mynn pbl transport of smoke and dust
+  units = various
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension,number_of_chemical_species_vertically_mixed)
   type = real
   kind = kind_phys
   intent = inout
@@ -749,6 +771,34 @@
   dimensions = (horizontal_loop_extent,vertical_layer_dimension)
   type = real
   kind = kind_phys
+  intent = inout
+[do_wetrm_thmp]
+  standard_name = do_aerosol_wet_removal_thompson
+  long_name = flag for wet removal of aerosols in Thompson MP
+  units = flag
+  dimensions = ()
+  type = logical
+  intent = in
+[wetdpr_smoke]
+  standard_name = wet_deposition_flux_thompson_mp_smoke
+  long_name = wet deposition flux of smoke in thomposon microphysics
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  intent = inout
+[wetdpr_dust]
+  standard_name = wet_deposition_flux_thompson_mp_dust_1
+  long_name = wet deposition flux of fine dust in thomposon microphysics
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  intent = inout
+[wetdpr_coarsepm]
+  standard_name = wet_deposition_flux_thompson_mp_coarse_pm
+  long_name = wet deposition flux of coarse dust in thomposon microphysics
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
   intent = inout
 [errmsg]
   standard_name = ccpp_error_message
