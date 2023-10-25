@@ -1,7 +1,7 @@
 [ccpp-table-properties]
   name = rrfs_smoke_wrapper
   type = scheme
-  dependencies = dep_dry_mod.F90,module_wetdep_ls.F90,dust_data_mod.F90,dust_fengsha_mod.F90,module_add_emiss_burn.F90,module_plumerise1.F90,module_smoke_plumerise.F90,module_zero_plumegen_coms.F90,plume_data_mod.F90,rrfs_smoke_config.F90,seas_data_mod.F90,seas_mod.F90,seas_ngac_mod.F90,coarsepm_settling_mod.F90
+  dependencies = dep_dry_simple_mod.F90,module_wetdep_ls.F90,dust_data_mod.F90,dust_fengsha_mod.F90,module_add_emiss_burn.F90,module_plumerise1.F90,module_smoke_plumerise.F90,module_zero_plumegen_coms.F90,plume_data_mod.F90,rrfs_smoke_config.F90,seas_data_mod.F90,seas_mod.F90,seas_ngac_mod.F90,coarsepm_settling_mod.F90, dep_dry_mod_emerson.F90,dep_data_mod.F90
 
 ########################################################################
 [ccpp-arg-table]
@@ -558,6 +558,51 @@
   type = real
   kind = kind_phys
   intent = inout
+[wetdpr_smoke]
+  standard_name = wet_deposition_flux_thompson_mp_smoke
+  long_name = wet deposition flux of smoke in thomposon microphysics
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  intent = inout
+[wetdpr_dust]
+  standard_name = wet_deposition_flux_thompson_mp_dust_1
+  long_name = wet deposition flux of fine dust in thomposon microphysics
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  intent = inout
+[wetdpr_coarsepm]
+  standard_name = wet_deposition_flux_thompson_mp_coarse_pm
+  long_name = wet deposition flux of coarse dust in thomposon microphysics
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  intent = inout
+[drydep_flux_smoke]
+  standard_name = dry_deposition_flux_smoke
+  long_name = rrfs dry deposition flux of smoke
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+  intent = inout
+[drydep_flux_dust_1]
+  standard_name = dry_deposition_flux_dust_1
+  long_name = rrfs dry deposition flux of fine dust
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+  intent = inout
+[drydep_flux_coarse_pm]
+  standard_name = dry_deposition_flux_coarse_pm
+  long_name = rrfs dry deposition flux of coarse dust
+  units = ug m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+  intent = inout
 [hwp]
   standard_name = hourly_wildfire_potential
   long_name = rrfs hourly fire weather potential
@@ -566,6 +611,14 @@
   type = real
   kind = kind_phys
   intent = out
+[hwp_ave]
+  standard_name = hourly_wildfire_potential_average
+  long_name = rrfs hourly fire weather potential average
+  units = none
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+  intent = inout
 [wetness]
   standard_name = normalized_soil_wetness_for_land_surface_model
   long_name = normalized soil wetness
@@ -683,9 +736,9 @@
   dimensions = ()
   type = integer
   intent = in
-[coarsepm_settling_in]
-  standard_name = control_for_smoke_coarsepm_settling
-  long_name = rrfs smoke coarsepm settling option
+[pm_settling_in]
+  standard_name = control_for_smoke_pm_settling
+  long_name = rrfs smoke pm settling option
   units = index
   dimensions = ()
   type = integer
@@ -739,6 +792,29 @@
   units = flag
   dimensions = ()
   type = logical
+  intent = in
+[fire_heat_flux_out]
+  standard_name = surface_fire_heat_flux
+  long_name = heat flux of fire at the surface
+  units = W m-2
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+  intent = out
+[kpbl]
+  standard_name = vertical_index_at_top_of_atmosphere_boundary_layer
+  long_name = PBL top model level index
+  units = index
+  dimensions = (horizontal_loop_extent)
+  type = integer
+  intent = in
+[oro]
+  standard_name = height_above_mean_sea_level
+  long_name = height_above_mean_sea_level
+  units = m
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
   intent = in
 [dbg_opt_in]
   standard_name = do_smoke_debug

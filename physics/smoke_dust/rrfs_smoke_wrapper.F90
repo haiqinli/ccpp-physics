@@ -7,7 +7,7 @@
    use machine ,              only : kind_phys
    use rrfs_smoke_config,     only : kemit, dust_opt, seas_opt, do_plumerise,           &
                                      addsmoke_flag, plumerisefire_frq, wetdep_ls_opt,   &
-                                     drydep_opt, coarsepm_settling, aero_ind_fdb,       &
+                                     drydep_opt, pm_settling, aero_ind_fdb,       &
                                      dbg_opt, smoke_forecast, wetdep_ls_alpha,          &
                                      num_moist, num_chem, num_emis_seas, num_emis_dust, &
                                      DUST_OPT_FENGSHA, p_qv, p_atm_shum, p_atm_cldq,    &
@@ -17,7 +17,8 @@
    use plume_data_mod,        only : p_frp_std, p_frp_hr, num_frp_plume
    use seas_mod,              only : gocart_seasalt_driver
    use dust_fengsha_mod,      only : gocart_dust_fengsha_driver
-   use dep_dry_mod,           only : dry_dep_driver
+   use dep_dry_simple_mod,    only : dry_dep_driver_simple
+   use dep_dry_emerson_mod,   only : dry_dep_driver_emerson
    use module_wetdep_ls,      only : wetdep_ls
    use module_plumerise1,     only : ebu_driver
    use module_add_emiss_burn, only : add_emis_burn
@@ -47,15 +48,17 @@ contains
                    dust12m_in, emi_in, smoke_RRFS, ntrac, qgrs, gq0, chem3d, tile_num,     &
                    ntsmoke, ntdust, ntcoarsepm, imp_physics, imp_physics_thompson,         &
                    nwfa, nifa, emanoc, emdust, emseas,                                     &
+                   drydep_flux_dust_1, drydep_flux_smoke, drydep_flux_coarse_pm,           &
+                   wetdpr_smoke, wetdpr_dust, wetdpr_coarsepm,                             &
                    ebb_smoke_hr, frp_hr, frp_std_hr,                                       &
-                   coef_bb, ebu_smoke,fhist, min_fplume, max_fplume, hwp, wetness,         &
-                   smoke_ext, dust_ext, ndvel, ddvel_inout,rrfs_sd,                        &
+                   coef_bb, ebu_smoke,fhist, min_fplume, max_fplume, hwp,                  &
+                   hwp_ave, wetness, smoke_ext, dust_ext, ndvel, ddvel_inout,rrfs_sd,      &
                    dust_moist_opt_in, dust_moist_correction_in, dust_drylimit_factor_in,   & 
                    dust_alpha_in, dust_gamma_in, fire_in,                                  &
-                   seas_opt_in, dust_opt_in, drydep_opt_in, coarsepm_settling_in,          &
+                   seas_opt_in, dust_opt_in, drydep_opt_in, pm_settling_in,                &
                    do_plumerise_in, plumerisefire_frq_in, addsmoke_flag_in,                &
-                   wetdep_ls_opt_in,wetdep_ls_alpha_in,                                    &
-                   smoke_forecast_in, aero_ind_fdb_in,dbg_opt_in,errmsg,errflg)
+                   wetdep_ls_opt_in,wetdep_ls_alpha_in, smoke_forecast_in,                 &
+                   aero_ind_fdb_in,fire_heat_flux_out, kpbl,oro, dbg_opt_in, errmsg,errflg)
 
     implicit none
 
@@ -88,11 +91,17 @@ contains
     real(kind_phys), dimension(:), intent(inout) :: coef_bb, fhist
     real(kind_phys), dimension(:,:), intent(inout) :: ebu_smoke
     real(kind_phys), dimension(:,:), intent(inout) :: fire_in
+    real(kind_phys), dimension(:), intent(out) :: fire_heat_flux_out
     real(kind_phys), dimension(:), intent(inout) :: max_fplume, min_fplume       
     real(kind_phys), dimension(:), intent(  out) :: hwp
+    real(kind_phys), dimension(:), intent(inout) :: hwp_ave
     real(kind_phys), dimension(:,:), intent(out) :: smoke_ext, dust_ext
     real(kind_phys), dimension(:,:), intent(inout) :: nwfa, nifa
     real(kind_phys), dimension(:,:), intent(inout) :: ddvel_inout
+    real(kind_phys), dimension(:), intent(inout) :: &
+                   drydep_flux_dust_1,drydep_flux_smoke,drydep_flux_coarse_pm
+    real(kind_phys), dimension(:), intent(inout) :: &
+                   wetdpr_smoke, wetdpr_dust, wetdpr_coarsepm
     real(kind_phys), dimension(:), intent(in) :: wetness
     real(kind_phys), intent(in) :: dust_alpha_in, dust_gamma_in, wetdep_ls_alpha_in
     real(kind_phys), intent(in) :: dust_moist_correction_in
@@ -100,9 +109,11 @@ contains
     integer, intent(in) :: dust_moist_opt_in
     integer, intent(in) :: imp_physics, imp_physics_thompson
     integer, intent(in) :: seas_opt_in, dust_opt_in, drydep_opt_in,        &
-                           coarsepm_settling_in, plumerisefire_frq_in,     &
+                           pm_settling_in, plumerisefire_frq_in,     &
                            addsmoke_flag_in, wetdep_ls_opt_in
     logical, intent(in   ) :: do_plumerise_in, rrfs_sd
+    integer, dimension(:), intent(in) :: kpbl
+    real (kind=kind_phys), dimension(:), intent(in) :: oro
     character(len=*), intent(out) :: errmsg
     integer,          intent(out) :: errflg
 
@@ -111,7 +122,9 @@ contains
                      p_phy, z_at_w, dz8w, p8w, t8w, rho_phy, vvel, zmid, exch_h
 
     real(kind_phys), dimension(ims:im, jms:jme) :: u10, v10, ust, tsk,            &
-                     xland, xlat, xlong, dxy, pbl, hfx, rcav, rnav
+                     xland, xlat, xlong, dxy, pbl, hfx, rcav, rnav,               &
+                     wetdpr_smoke_local, wetdpr_dust_local, wetdpr_coarsepm_local
+ 
 
 !>- sea salt & chemistry variables
     real(kind_phys), dimension(ims:im, kms:kme, jms:jme, 1:num_moist)  :: moist 
@@ -133,13 +146,14 @@ contains
     real(kind_phys), dimension(ims:im, jms:jme) :: ebu_in
     real(kind_phys), dimension(ims:im, jms:jme, num_frp_plume ) :: plume_frp
     real(kind_phys), dimension(ims:im, jms:jme )  :: coef_bb_dc, flam_frac,             &
-                     fire_hist, peak_hr
+                     fire_hist, peak_hr, fire_heat_flux
     real(kind_phys), dimension(ims:im,kms:kme,jms:jme ) :: ext3d_smoke, ext3d_dust
     integer,         dimension(ims:im, jms:jme )  :: min_fplume2, max_fplume2
-    logical :: call_fire
+    logical :: call_fire, reset_hwp_ave
 !>- optical variables
     real(kind_phys), dimension(ims:im, kms:kme, jms:jme) :: rel_hum
     real(kind_phys), dimension(ims:im, jms:jme, ndvel) :: ddvel
+    real(kind_phys), dimension(ims:im, kms:kme, jms:jme, ndvel) :: vgrav
 
 !>-- anthropogentic variables
     real(kind_phys), dimension(ims:im) :: emis_anoc
@@ -156,8 +170,15 @@ contains
 !> -- aerosol density (kg/m3)
     real(kind_phys), parameter :: density_dust= 2.6e+3, density_sulfate=1.8e+3
     real(kind_phys), parameter :: density_oc  = 1.4e+3, density_seasalt=2.2e+3
+!> -- Gas constant
+    real(kind_phys), parameter :: RSI = 8.314510
 
     real(kind_phys), dimension(im) :: daero_emis_wfa, daero_emis_ifa
+
+!> -- Stuff for wind gust potential calculation
+    real(kind_phys), dimension(ims:im, jms:jme) :: pblh_ri, windgustpot
+    real(kind_phys) :: SFCWIND,WIND,DELWIND,DZ
+
 !>-- local variables
     real(kind_phys), dimension(im) :: wdgust, snoweq
     integer :: current_month, current_hour, hour_int
@@ -183,7 +204,7 @@ contains
     dbg_opt           = dbg_opt_in
     wetdep_ls_opt     = wetdep_ls_opt_in
     wetdep_ls_alpha   = wetdep_ls_alpha_in
-    coarsepm_settling = coarsepm_settling_in
+    pm_settling       = pm_settling_in
 
     ! -- set domain
     ide=im 
@@ -226,6 +247,8 @@ contains
      fire_hist (i,1) = fhist  (i)
     enddo
 
+    ! Is this a reset timestep (00:00 + dt)?
+    reset_hwp_ave = mod(int(curr_secs-dt),3600) == 0
 
     ! plumerise frequency in minutes set up by the namelist input
     call_fire       = (do_plumerise .and. (plumerisefire_frq > 0))
@@ -343,6 +366,7 @@ contains
                    t_phy,moist(:,:,:,p_qv),                            &
                    rho_phy,vvel,u_phy,v_phy,p_phy,                     &
                    z_at_w,zmid,g,con_cp,con_rd,                        &
+                   fire_heat_flux,dxy,                                 &
                    plume_frp, min_fplume2, max_fplume2,                &   ! new approach
                    ids,ide, jds,jde, kds,kde,                          &
                    ims,ime, jms,jme, kms,kme,                          &
@@ -364,7 +388,7 @@ contains
     endif
 
     !>-- compute coarsepm setting
-    if (coarsepm_settling == 1) then
+    if (drydep_opt == 1 .and. pm_settling == 1) then
     call coarsepm_settling_driver(dt,t_phy,rel_hum,                  &
                                   chem(:,:,:,p_coarse_pm),           &
                                   rho_phy,dz8w,p8w,p_phy,sedim,      &
@@ -376,11 +400,24 @@ contains
     !>-- compute dry deposition
     if (drydep_opt == 1) then
 
-    call dry_dep_driver(rmol,ust,ndvel,ddvel,rel_hum,                &
+    call dry_dep_driver_simple(rmol,ust,ndvel,ddvel,rel_hum,                &
        ids,ide, jds,jde, kds,kde,                                    &
        ims,ime, jms,jme, kms,kme,                                    &
        its,ite, jts,jte, kts,kte)
 
+       do nv=1,ndvel
+       do i=its,ite
+        ddvel_inout(i,nv)=ddvel(i,1,nv)
+       enddo
+       enddo
+    elseif (drydep_opt == 3) then
+
+    call dry_dep_driver_emerson(rmol,ust,znt,ndvel,ddvel,            &
+       vgrav,chem,dz8w,snowh,t_phy,p_phy,rho_phy,ivgtyp,g,dt,        & 
+       pm_settling,                                                  &
+       ids,ide, jds,jde, kds,kde,                                    &
+       ims,ime, jms,jme, kms,kme,                                    &
+       its,ite, jts,jte, kts,kte)
        do nv=1,ndvel
        do i=its,ite
         ddvel_inout(i,nv)=ddvel(i,1,nv)
@@ -392,11 +429,18 @@ contains
 
 !>- large-scale wet deposition
     if (wetdep_ls_opt == 1) then
-       call  wetdep_ls(dt,chem,rnav,moist,                      &
-                     rho_phy,num_chem,num_moist,dz8w,vvel,      &
-                     ids,ide, jds,jde, kds,kde,                 &
-                     ims,ime, jms,jme, kms,kme,                 &
-                     its,ite, jts,jte, kts,kte)
+       call  wetdep_ls(dt,chem,rnav,moist,                       &
+                     rho_phy,num_chem,num_moist,dz8w,vvel,       &
+                     wetdpr_smoke_local, wetdpr_dust_local,      &
+                     wetdpr_coarsepm_local,                      &
+                     ids,ide, jds,jde, kds,kde,                  &
+                     ims,ime, jms,jme, kms,kme,                  &
+                     its,ite, jts,jte, kts,kte                   )
+       do i = its, ite
+          wetdpr_smoke(i)    = wetdpr_smoke(i)    + wetdpr_smoke_local(i,1)
+          wetdpr_dust(i)     = wetdpr_dust(i)     + wetdpr_dust_local(i,1)
+          wetdpr_coarsepm(i) = wetdpr_coarsepm(i) + wetdpr_coarsepm_local(i,1)
+       enddo
     endif
 
     do k=kts,kte
@@ -405,15 +449,37 @@ contains
      enddo
     enddo
 
+!---- Calculate wind gust potential
+    do i = its,ite
+       SFCWIND          = sqrt(us3d(i,1)**2+vs3d(i,1)**2)
+       windgustpot(i,1) = SFCWIND
+       do k=kts+1,kpbl(i)+1
+          WIND = sqrt(us3d(i,k)**2+vs3d(i,k)**2)
+          DELWIND = WIND - SFCWIND
+          DZ = z_at_w(i,k,1) - oro(i)
+          DELWIND = DELWIND*(1.0-MIN(0.5,DZ/2000.))
+          windgustpot(i,1) = max(windgustpot(i,1),SFCWIND-DELWIND)
+       enddo
+    enddo
 
 !---- diagnostic output of hourly wildfire potential (07/2021)
+    if (ktau == 1 .or. reset_hwp_ave) then
+       hwp_ave = 0.
+    endif
     hwp = 0.
     do i=its,ite
       wdgust(i)=max(1.68*sqrt(us3d(i,1)**2+vs3d(i,1)**2),3.)
       snoweq(i)=max((25.-snow(i))/25.,0.)
       hwp(i)=0.237*wdgust(i)**1.11*max(t2m(i)-dpt2m(i),15.)**0.92*((1.-wetness(i))**6.95)*snoweq(i) ! Eric 08/2022
+      hwp_ave(i) = hwp_ave(i) + hwp(i)*dt
     enddo
-    
+   
+!---- diagnostic output of fire heat flux
+    fire_heat_flux_out = 0.
+    do i = its,ite
+         fire_heat_flux_out(i) = min(max(0.,fire_heat_flux(i,1)),50000.) ! JLS - W m-2 [0 - 10,000]
+    enddo
+ 
 !---- diagnostic output of smoke & dust optical extinction (12/2021)
     do k=kts,kte
      do i=its,ite
@@ -421,6 +487,18 @@ contains
        dust_ext (i,k) = ext3d_dust (i,k,1)
      enddo
     enddo
+
+!---- diagnostic output of dry deposition fluxes
+    if ( drydep_opt == 3 ) then
+       do i=its,ite
+          drydep_flux_smoke(i) = drydep_flux_smoke(i) + &
+                chem(i,kts,1,p_smoke)*p_phy(i,kts,1)/(RSI*t_phy(i,kts,1))*ddvel(i,1,1)*dt*1.E-6
+          drydep_flux_dust_1(i) = drydep_flux_dust_1(i) + & 
+                chem(i,kts,1,p_dust_1)*p_phy(i,kts,1)/(RSI*t_phy(i,kts,1))*ddvel(i,1,2)*dt*1.E-6
+          drydep_flux_coarse_pm(i) = drydep_flux_coarse_pm(i) + &
+                chem(i,kts,1,p_coarse_pm)*p_phy(i,kts,1)/(RSI*t_phy(i,kts,1))*ddvel(i,1,3)*dt*1.E-6
+       enddo
+    endif
 !-------------------------------------
 !---- put smoke stuff back into tracer array
     do k=kts,kte

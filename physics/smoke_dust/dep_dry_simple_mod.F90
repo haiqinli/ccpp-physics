@@ -1,7 +1,7 @@
-!>\file dep_dry_mod.F90
+!>\file dep_dry_simple_mod.F90
 !! This file is for the dry depostion driver.
 
-module dep_dry_mod
+module dep_dry_simple_mod
 
   use machine ,        only : kind_phys
 
@@ -9,11 +9,11 @@ module dep_dry_mod
 
   private
 
-  public :: dry_dep_driver
+  public :: dry_dep_driver_simple
 
 contains
 
-    subroutine dry_dep_driver(rmol,ust,ndvel,ddvel,rel_hum,               &
+    subroutine dry_dep_driver_simple(rmol,ust,ndvel,ddvel,rel_hum,               &
                ids,ide, jds,jde, kds,kde,                                 &
                ims,ime, jms,jme, kms,kme,                                 &
                its,ite, jts,jte, kts,kte                                  )
@@ -64,6 +64,6 @@ contains
          enddo
         enddo
 
-end subroutine dry_dep_driver
+end subroutine dry_dep_driver_simple
 
-end module dep_dry_mod
+end module dep_dry_simple_mod
