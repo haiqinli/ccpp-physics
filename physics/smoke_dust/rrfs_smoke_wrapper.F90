@@ -50,7 +50,7 @@ contains
                    nwfa, nifa, emanoc, emdust, emseas,                                     &
                    drydep_flux_dust_1, drydep_flux_smoke, drydep_flux_coarse_pm,           &
                    wetdpr_smoke, wetdpr_dust, wetdpr_coarsepm,                             &
-                   ebb_smoke_hr, frp_hr, frp_std_hr,                                       &
+                   ebb_smoke_hr, frp_hr, frp_std_hr, hwp_avg_hr, fire_age_hr,              &
                    coef_bb, ebu_smoke,fhist, min_fplume, max_fplume, hwp,                  &
                    hwp_ave, wetness, smoke_ext, dust_ext, ndvel, ddvel_inout,rrfs_sd,      &
                    dust_moist_opt_in, dust_moist_correction_in, dust_drylimit_factor_in,   & 
@@ -87,7 +87,7 @@ contains
     real(kind_phys), dimension(:,:,:), intent(inout) :: qgrs, gq0
     real(kind_phys), dimension(:,:,:), intent(inout) :: chem3d
     real(kind_phys), dimension(:), intent(inout) :: emdust, emseas, emanoc
-    real(kind_phys), dimension(:), intent(inout) :: ebb_smoke_hr, frp_hr, frp_std_hr
+    real(kind_phys), dimension(:), intent(inout) :: ebb_smoke_hr, frp_hr, frp_std_hr, hwp_avg_hr, fire_age_hr
     real(kind_phys), dimension(:), intent(inout) :: coef_bb, fhist
     real(kind_phys), dimension(:,:), intent(inout) :: ebu_smoke
     real(kind_phys), dimension(:,:), intent(inout) :: fire_in
@@ -270,7 +270,7 @@ contains
         num_chem,num_moist,                                             &
         ntsmoke, ntdust,ntcoarsepm,                                     &
         moist,chem,plume_frp,ebu_in,                                    &
-        ebb_smoke_hr, frp_hr, frp_std_hr, emis_anoc,                    &
+        ebb_smoke_hr, frp_hr, frp_std_hr, hwp_avg_hr, fire_age_hr, emis_anoc,  &
         smois,ivgtyp,isltyp,vegfrac,rmol,swdown,znt,hfx,pbl,            &
         snowh,clayf,rdrag,sandf,ssm,uthr,rel_hum,                       &
         ids,ide, jds,jde, kds,kde,                                      &
@@ -414,7 +414,6 @@ contains
 
     call dry_dep_driver_emerson(rmol,ust,znt,ndvel,ddvel,            &
        vgrav,chem,dz8w,snowh,t_phy,p_phy,rho_phy,ivgtyp,g,dt,        & 
-       pm_settling,                                                  &
        ids,ide, jds,jde, kds,kde,                                    &
        ims,ime, jms,jme, kms,kme,                                    &
        its,ite, jts,jte, kts,kte)
@@ -582,7 +581,7 @@ contains
         num_chem, num_moist,                                            &
         ntsmoke, ntdust, ntcoarsepm,                                    &
         moist,chem,plume_frp,ebu_in,                                    &
-        ebb_smoke_hr, frp_hr, frp_std_hr, emis_anoc,                    &
+        ebb_smoke_hr, frp_hr, frp_std_hr, hwp_avg_hr, fire_age_hr,emis_anoc,&
         smois,ivgtyp,isltyp,vegfrac,rmol,swdown,znt,hfx,pbl,            &
         snowh,clayf,rdrag,sandf,ssm,uthr,rel_hum,                       &
         ids,ide, jds,jde, kds,kde,                                      &
@@ -632,7 +631,7 @@ contains
 
     real(kind_phys), dimension(ims:ime, kms:kme, jms:jme), intent(out) :: z_at_w
     real(kind_phys), dimension(ims:ime, nsoil, jms:jme), intent(out) :: smois
-    real(kind_phys), dimension(ims:ime), intent(inout) :: ebb_smoke_hr, frp_hr, frp_std_hr
+    real(kind_phys), dimension(ims:ime), intent(inout) :: ebb_smoke_hr, frp_hr, frp_std_hr, hwp_avg_hr, fire_age_hr
     real(kind_phys), dimension(ims:ime), intent(inout) :: emis_anoc
    !real(kind_phys), dimension(ims:ime, jms:jme, num_plume_data) :: plume
     real(kind_phys), parameter :: conv_frp = 1.e+06_kind_phys  ! FRP conversion factor, MW to W
@@ -649,6 +648,8 @@ contains
     emis_anoc      = 0._kind_phys
     frp_hr         = 0._kind_phys
     frp_std_hr     = 0._kind_phys
+    hwp_avg_hr     = 0._kind_phys
+    fire_age_hr    = 0._kind_phys
 
     ! -- initialize output arrays
     isltyp         = 0._kind_phys
@@ -815,6 +816,8 @@ contains
           ebb_smoke_hr(i)  = smoke_RRFS(i,hour_int+1,1) ! smoke
           frp_hr      (i)  = smoke_RRFS(i,hour_int+1,2) ! frp
           frp_std_hr  (i)  = smoke_RRFS(i,hour_int+1,3) ! std frp
+          hwp_avg_hr  (i)  = smoke_RRFS(i,hour_int+1,4) ! hourly hwp
+          fire_age_hr (i)  = smoke_RRFS(i,hour_int+1,5) ! hourly hwp
           ebu_in    (i,j)  = ebb_smoke_hr(i)
           plume_frp(i,j,p_frp_hr ) = conv_frp* frp_hr      (i)
           plume_frp(i,j,p_frp_std) = conv_frp* frp_std_hr  (i)

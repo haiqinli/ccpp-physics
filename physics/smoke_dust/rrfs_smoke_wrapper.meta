@@ -518,6 +518,22 @@
   type = real
   kind = kind_phys
   intent = inout
+[hwp_avg_hr]
+  standard_name = hwp_avg_hourly
+  long_name =  hourly wildfire potential
+  units = none
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+  intent = inout
+[fire_age_hr]
+  standard_name = fire_age_hourly
+  long_name =  hourly fire age
+  units = none
+  dimensions = (horizontal_loop_extent)
+  type = real
+  kind = kind_phys
+  intent = inout
 [coef_bb]
   standard_name = coef_bb_dc
   long_name = coef to estimate the fire emission

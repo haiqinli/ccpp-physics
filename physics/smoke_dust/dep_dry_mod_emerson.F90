@@ -20,7 +20,6 @@ module dep_dry_emerson_mod
 contains
     subroutine dry_dep_driver_emerson(rmol,ustar,znt,ndvel,ddvel,vgrav,   &
                chem,delz,snowh,t_phy,p_phy,rho_phy,ivgtyp,g0,dt,          &
-               settling_flag,                                             &
                ids,ide, jds,jde, kds,kde,                                 &
                ims,ime, jms,jme, kms,kme,                                 &
                its,ite, jts,jte, kts,kte                                  )
@@ -33,7 +32,7 @@ contains
 !----------------------------------------------------------------------
   IMPLICIT NONE
  
-       INTEGER,  INTENT(IN   ) ::  settling_flag,ndvel,                    &
+       INTEGER,  INTENT(IN   ) ::  ndvel,                                  &
                                    ids,ide, jds,jde, kds,kde,              &
                                    ims,ime, jms,jme, kms,kme,              &
                                    its,ite, jts,jte, kts,kte
@@ -77,7 +76,6 @@ contains
        real(kind_phys), dimension( kts:kte, ndvel ) :: cblk_col, vg_col
        integer, dimension(ndvel) :: ndt_settl
        integer :: i, j, k, ntdt, nv
-       real(kind_phys) :: chem_before
  ! chem pointers (p_*) are not sequentially numbered, need to define so nv loops work
        integer, dimension(ndvel) :: chem_pointers
        chem_pointers(1) = p_smoke
@@ -114,7 +112,7 @@ contains
                 !             dgnuc,dgacc,dgcor,knnuc,knacc,kncor,xlm, ndvel     )
                 ! Air kinematic viscosity (cm^2/s)
                 airkinvisc = ( 1.8325e-4 * ( 416.16 / ( t_phy(i,k,j) + 120.0 ) ) *   &
-                             ( ( t_phy(i,k,j) / 296.16 )**1.5 ) ) / ( rho_phy(i,k,j) * 1.e3 ) ! Convert density to g/cm^3
+                             ( ( t_phy(i,k,j) / 296.16 )**1.5 ) ) / ( rho_phy(i,k,j) * 1.e-3 ) ! Convert density to g/cm^3
                 ! Air molecular freepath (cm)  ! Check against XLM from above
                 freepath = 7.39758e-4 * airkinvisc / sqrt( t_phy(i,k,j) )
                 do nv = 1, ndvel
@@ -139,11 +137,11 @@ contains
                    amu_corrected = amu / Cc
                    ! Gravitational Settling
                    vg = aerodens * dp * dp * gravity * 100. * Cc / &       ! Convert gravity to cm/s^2
-                          ( 18. * airkinvisc * ( rho_phy(i,k,j) * 1.e3 ) ) ! Convert density to g/cm^3
+                          ( 18. * airkinvisc * ( rho_phy(i,k,j) * 1.e-3 ) ) ! Convert density to g/cm^3
                    ! -- Rest of loop for the surface when deposition velocity needs to be cacluated
                    if ( k == kts ) then
                       ! Brownian Diffusion
-                      DDp = ( boltzmann * t_phy(i,k,j) ) * Cc / (3. * pi * airkinvisc * ( rho_phy(i,k,j) * 1.e3 )  * dp) ! Convert density to g/cm^3
+                      DDp = ( boltzmann * t_phy(i,k,j) ) * Cc / (3. * pi * airkinvisc * ( rho_phy(i,k,j) * 1.e-3 )  * dp) ! Convert density to g/cm^3
                       ! Schmit number
                       Sc = airkinvisc / DDp
                       ! Brownian Diffusion
@@ -211,11 +209,16 @@ contains
                IF (ndt_settl(nv) > 12) ndt_settl(nv) = 12 
                dt_settl(nv) = REAL(ntdt) / REAL(ndt_settl(nv))
              enddo
-             chem_before = sum(cblk_col(kts:kte,3))
-             ! Perform gravitational settling if desired
-             if ( settling_flag == 1 ) then
-                call particle_settling(cblk_col,rho_col,delz_col,vg_col,dt_settl,ndt_settl,ndvel,kts,kte)
-             endif
+             ! Perform gravitational settling
+             !if (j .eq. jts .and. i .eq. its .and. k .eq. kts ) then
+             !    write(*,*) 'JLS, cblk_col(kts,kts+1,1) before settling: ',cblk_col(kts,1),cblk_col(kts+1,1)
+             !    write(*,*) 'JLS, rho_col,delz_col,vg_col: ', rho_col(kts),delz_col(kts),vg_col(kts)
+             !    write(*,*) 'JLS, dt_settl,ndt_settl',dt_settl,ndt_settl
+             !endif
+             call particle_settling(cblk_col,rho_col,delz_col,vg_col,dt_settl,ndt_settl,ndvel,kts,kte)
+!             if (j .eq. jts .and. i .eq. its .and. k .eq. kts ) then
+!                write(*,*) 'JLS, cblk_col(kts,kts+1,1) before settling: ',cblk_col(kts,1),cblk_col(kts+1,1)
+!             endif
              ! Put cblk back into chem array
              do k = kts, kte
                 do nv= 1, ndvel
