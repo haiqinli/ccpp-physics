@@ -114,7 +114,7 @@ contains
                 !             dgnuc,dgacc,dgcor,knnuc,knacc,kncor,xlm, ndvel     )
                 ! Air kinematic viscosity (cm^2/s)
                 airkinvisc = ( 1.8325e-4 * ( 416.16 / ( t_phy(i,k,j) + 120.0 ) ) *   &
-                             ( ( t_phy(i,k,j) / 296.16 )**1.5 ) ) / ( rho_phy(i,k,j) * 1.e3 ) ! Convert density to g/cm^3
+                             ( ( t_phy(i,k,j) / 296.16 )**1.5 ) ) / ( rho_phy(i,k,j) * 1.e-3 ) ! Convert density to g/cm^3
                 ! Air molecular freepath (cm)  ! Check against XLM from above
                 freepath = 7.39758e-4 * airkinvisc / sqrt( t_phy(i,k,j) )
                 do nv = 1, ndvel
@@ -139,11 +139,11 @@ contains
                    amu_corrected = amu / Cc
                    ! Gravitational Settling
                    vg = aerodens * dp * dp * gravity * 100. * Cc / &       ! Convert gravity to cm/s^2
-                          ( 18. * airkinvisc * ( rho_phy(i,k,j) * 1.e3 ) ) ! Convert density to g/cm^3
+                          ( 18. * airkinvisc * ( rho_phy(i,k,j) * 1.e-3 ) ) ! Convert density to g/cm^3
                    ! -- Rest of loop for the surface when deposition velocity needs to be cacluated
                    if ( k == kts ) then
                       ! Brownian Diffusion
-                      DDp = ( boltzmann * t_phy(i,k,j) ) * Cc / (3. * pi * airkinvisc * ( rho_phy(i,k,j) * 1.e3 )  * dp) ! Convert density to g/cm^3
+                      DDp = ( boltzmann * t_phy(i,k,j) ) * Cc / (3. * pi * airkinvisc * ( rho_phy(i,k,j) * 1.e-3 )  * dp) ! Convert density to g/cm^3
                       ! Schmit number
                       Sc = airkinvisc / DDp
                       ! Brownian Diffusion

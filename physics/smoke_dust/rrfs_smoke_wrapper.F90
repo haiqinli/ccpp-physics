@@ -58,7 +58,7 @@ contains
                    seas_opt_in, dust_opt_in, drydep_opt_in, pm_settling_in,                &
                    do_plumerise_in, plumerisefire_frq_in, addsmoke_flag_in,                &
                    wetdep_ls_opt_in,wetdep_ls_alpha_in, smoke_forecast_in,                 &
-                   aero_ind_fdb_in,fire_heat_flux_out, kpbl,oro, dbg_opt_in, errmsg,errflg)
+                   aero_ind_fdb_in,fire_heat_flux_out, kpbl,oro, dbg_opt_in, errmsg,errflg )
 
     implicit none
 
@@ -122,9 +122,8 @@ contains
                      p_phy, z_at_w, dz8w, p8w, t8w, rho_phy, vvel, zmid, exch_h
 
     real(kind_phys), dimension(ims:im, jms:jme) :: u10, v10, ust, tsk,            &
-                     xland, xlat, xlong, dxy, pbl, hfx, rcav, rnav,               &
+                     xland, xlat, xlong, dxy, pbl, hfx, rcav, rnav, hwp_local,    &
                      wetdpr_smoke_local, wetdpr_dust_local, wetdpr_coarsepm_local
- 
 
 !>- sea salt & chemistry variables
     real(kind_phys), dimension(ims:im, kms:kme, jms:jme, 1:num_moist)  :: moist 
@@ -174,10 +173,6 @@ contains
     real(kind_phys), parameter :: RSI = 8.314510
 
     real(kind_phys), dimension(im) :: daero_emis_wfa, daero_emis_ifa
-
-!> -- Stuff for wind gust potential calculation
-    real(kind_phys), dimension(ims:im, jms:jme) :: pblh_ri, windgustpot
-    real(kind_phys) :: SFCWIND,WIND,DELWIND,DZ
 
 !>-- local variables
     real(kind_phys), dimension(im) :: wdgust, snoweq
@@ -272,7 +267,8 @@ contains
         moist,chem,plume_frp,ebu_in,                                    &
         ebb_smoke_hr, frp_hr, frp_std_hr, emis_anoc,                    &
         smois,ivgtyp,isltyp,vegfrac,rmol,swdown,znt,hfx,pbl,            &
-        snowh,clayf,rdrag,sandf,ssm,uthr,rel_hum,                       &
+        snowh,clayf,rdrag,sandf,ssm,uthr,rel_hum,oro, hwp_local,        &
+        t2m,dpt2m,wetness,                                              &
         ids,ide, jds,jde, kds,kde,                                      &
         ims,ime, jms,jme, kms,kme,                                      &
         its,ite, jts,jte, kts,kte)
@@ -449,28 +445,13 @@ contains
      enddo
     enddo
 
-!---- Calculate wind gust potential
-    do i = its,ite
-       SFCWIND          = sqrt(us3d(i,1)**2+vs3d(i,1)**2)
-       windgustpot(i,1) = SFCWIND
-       do k=kts+1,kpbl(i)+1
-          WIND = sqrt(us3d(i,k)**2+vs3d(i,k)**2)
-          DELWIND = WIND - SFCWIND
-          DZ = z_at_w(i,k,1) - oro(i)
-          DELWIND = DELWIND*(1.0-MIN(0.5,DZ/2000.))
-          windgustpot(i,1) = max(windgustpot(i,1),SFCWIND-DELWIND)
-       enddo
-    enddo
-
 !---- diagnostic output of hourly wildfire potential (07/2021)
     if (ktau == 1 .or. reset_hwp_ave) then
        hwp_ave = 0.
     endif
     hwp = 0.
     do i=its,ite
-      wdgust(i)=max(1.68*sqrt(us3d(i,1)**2+vs3d(i,1)**2),3.)
-      snoweq(i)=max((25.-snow(i))/25.,0.)
-      hwp(i)=0.237*wdgust(i)**1.11*max(t2m(i)-dpt2m(i),15.)**0.92*((1.-wetness(i))**6.95)*snoweq(i) ! Eric 08/2022
+      hwp(i)=hwp_local(i,1)
       hwp_ave(i) = hwp_ave(i) + hwp(i)*dt
     enddo
    
@@ -584,7 +565,8 @@ contains
         moist,chem,plume_frp,ebu_in,                                    &
         ebb_smoke_hr, frp_hr, frp_std_hr, emis_anoc,                    &
         smois,ivgtyp,isltyp,vegfrac,rmol,swdown,znt,hfx,pbl,            &
-        snowh,clayf,rdrag,sandf,ssm,uthr,rel_hum,                       &
+        snowh,clayf,rdrag,sandf,ssm,uthr,rel_hum,oro,hwp,               &
+        t2m,dpt2m,wetness,                                              &
         ids,ide, jds,jde, kds,kde,                                      &
         ims,ime, jms,jme, kms,kme,                                      &
         its,ite, jts,jte, kts,kte)
@@ -599,7 +581,7 @@ contains
     real(kind=kind_phys), intent(in) :: g, pi, gmt, con_rd, con_fv
     real(kind=kind_phys), dimension(ims:ime), intent(in) ::                & 
          u10m, v10m, ustar, garea, rlat, rlon, ts2d, sigmaf, dswsfc,       &
-         zorl, snow_cpl, pb2d, hf2d
+         zorl, snow_cpl, pb2d, hf2d, oro, t2m, dpt2m, wetness
     real(kind=kind_phys), dimension(ims:ime, nsoil),   intent(in) :: smc 
     real(kind=kind_phys), dimension(ims:ime, 12, 5),   intent(in) :: dust12m_in
     real(kind=kind_phys), dimension(ims:ime, 24, 3),   intent(in) :: smoke_RRFS
@@ -626,7 +608,7 @@ contains
          zmid, exch_h, rel_hum
     real(kind_phys), dimension(ims:ime, jms:jme),          intent(out) ::              &
          u10, v10, ust, tsk, xland, xlat, xlong, dxy, vegfrac, rmol, swdown, znt,      &
-         pbl, hfx, snowh, clayf, rdrag, sandf, ssm, uthr
+         pbl, hfx, snowh, clayf, rdrag, sandf, ssm, uthr, hwp
     real(kind_phys), dimension(ims:ime, kms:kme, jms:jme, num_moist), intent(out) :: moist
     real(kind_phys), dimension(ims:ime, kms:kme, jms:jme, num_chem),  intent(out) :: chem
 
@@ -640,6 +622,8 @@ contains
 
     ! -- local variables
     integer i,ip,j,k,kp,kk,kkp,nv,l,ll,n
+    real(kind_phys) :: SFCWIND,WIND,DELWIND,DZ,wdgust,snoweq
+    real(kind_phys), dimension(ims:ime, jms:jme) :: windgustpot
 
     ! -- initialize fire emissions
     !plume          = 0._kind_phys
@@ -807,6 +791,25 @@ contains
     ! -- anthropogenic organic carbon
     do i=its,ite
       emis_anoc(i) = emi_in(i,1)
+    enddo
+
+!---- Calculate wind gust potential and HWP
+    do i = its,ite
+       SFCWIND          = sqrt(u10m(i)**2+v10m(i)**2)
+       windgustpot(i,1) = SFCWIND
+       do k=kts+1,kpbl(i)+1
+          WIND = sqrt(us3d(i,k)**2+vs3d(i,k)**2)
+          DELWIND = WIND - SFCWIND
+          DZ = zmid(i,k,1) - oro(i)
+          DELWIND = DELWIND*(1.0-MIN(0.5,DZ/2000.))
+          windgustpot(i,1) = max(windgustpot(i,1),SFCWIND+DELWIND)
+       enddo
+    enddo
+    hwp = 0.
+    do i=its,ite
+      wdgust=max(1.68*sqrt(us3d(i,1)**2+vs3d(i,1)**2),3.) !max(windgustpot(i,1),3.)
+      snoweq=max((25.-snow_cpl(i))/25.,0.)
+      hwp(i)=0.237*wdgust**1.11*max(t2m(i)-dpt2m(i),15.)**0.92*((1.-wetness(i))**6.95)*snoweq
     enddo
 
     if (hour_int<24) then
