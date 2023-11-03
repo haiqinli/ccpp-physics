@@ -622,8 +622,10 @@ contains
 
     ! -- local variables
     integer i,ip,j,k,kp,kk,kkp,nv,l,ll,n
-    real(kind_phys) :: SFCWIND,WIND,DELWIND,DZ,wdgust,snoweq
-    real(kind_phys), dimension(ims:ime, jms:jme) :: windgustpot
+    real(kind_phys) :: SFCWIND,WIND,DELWIND,DZ,wdgust,snoweq,THETA,ZSF
+    real(kind_phys), dimension(ims:ime, kms:kme, jms:jme) :: THETAV
+    real(kind_phys), dimension(ims:ime, jms:jme) :: windgustpot,pblh_thetav,kpbl_thetav
+    real(kind_phys), parameter :: delta_theta4gust = 0.5
 
     ! -- initialize fire emissions
     !plume          = 0._kind_phys
@@ -793,21 +795,57 @@ contains
       emis_anoc(i) = emi_in(i,1)
     enddo
 
+!---- Calculate PBLH and K-PBL based on virtual potential temperature profile
+!---- First calculate THETAV
+    do j = jts,jte
+    do i = its,ite
+    do k = kts,kte
+       THETA = t_phy(i,k,j) * (1.E5/p_phy(i,k,j))**0.286
+       THETAV(i,k,j) = THETA * (1. + 0.61 * (moist(i,k,j,p_qv)))
+    enddo
+    enddo
+    enddo
+!---- Now use the UPP code to deterimine the height and level
+    do i = its, ite
+    do j = jts, jte
+       if ( THETAV(i,kts+1,j) .lt. ( THETAV(i,kts,j) + delta_theta4gust) ) then
+          ZSF = oro(i)
+          do k = kts+2, kte
+             k1 = k
+!--- give theta-v at the sfc a 0.5K boost in the PBLH definition
+             if ( THETAV(i,kts+k-1,j) .gt. ( THETAV(i,kts,j) + delta_theta4gust) ) then
+                exit
+             endif
+          enddo
+          kpbl_thetav(i,j) = k1
+          pblh_thetav(i,j) = zmid(i,k+k1-1,j) * &
+                ((THETAV(i,kts,j)+delta_theta4gust) - THETAV(i,kts+k1-1,j))   &
+              * (zmid(i,kts+k1-2,j) - zmid(i,kts+k1-1,j))                 &
+              / (THETAV(i,kts+k1-2,j) - THETAV(i,kts+k1-1,j)) - ZSF
+       else
+          pblh_thetav(i,j) = 0.0
+          kpbl_thetav(i,j) = kts + 1
+       endif
+   enddo
+   enddo
+
 !---- Calculate wind gust potential and HWP
     do i = its,ite
        SFCWIND          = sqrt(u10m(i)**2+v10m(i)**2)
        windgustpot(i,1) = SFCWIND
-       do k=kts+1,kpbl(i)+1
-          WIND = sqrt(us3d(i,k)**2+vs3d(i,k)**2)
-          DELWIND = WIND - SFCWIND
-          DZ = zmid(i,k,1) - oro(i)
-          DELWIND = DELWIND*(1.0-MIN(0.5,DZ/2000.))
-          windgustpot(i,1) = max(windgustpot(i,1),SFCWIND+DELWIND)
-       enddo
+       if (kpbl_thetav(i,1)+1 .ge. kts+1 ) then
+          do k=kts+1,kpbl_thetav(i,1)+1
+             WIND = sqrt(us3d(i,k)**2+vs3d(i,k)**2)
+             DELWIND = WIND - SFCWIND
+             DZ = zmid(i,k,1) - oro(i)
+             DELWIND = DELWIND*(1.0-MIN(0.5,DZ/2000.))
+             windgustpot(i,1) = max(windgustpot(i,1),SFCWIND+DELWIND)
+          enddo
+       endif
     enddo
     hwp = 0.
     do i=its,ite
-      wdgust=max(1.68*sqrt(us3d(i,1)**2+vs3d(i,1)**2),3.) !max(windgustpot(i,1),3.)
+      wdgust=max(windgustpot(i,1),3.)
       snoweq=max((25.-snow_cpl(i))/25.,0.)
       hwp(i)=0.237*wdgust**1.11*max(t2m(i)-dpt2m(i),15.)**0.92*((1.-wetness(i))**6.95)*snoweq
     enddo
