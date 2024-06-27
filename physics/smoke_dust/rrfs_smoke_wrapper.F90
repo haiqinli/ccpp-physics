@@ -951,7 +951,7 @@ contains
 
 !---- Calculate HWP based on selected method
     hwp_local = 0._kind_phys
-    precip_factor  = 2.5_kind_phys + real(hour_inti, kind=kind_phys)*2.5_kind_phys/24._kind_phys
+    precip_factor  = 2.5_kind_phys + real(hour_int, kind=kind_phys)*2.5_kind_phys/24._kind_phys
   ! total precip is only in the SMOKE_RRFS_DATA if ebb_dcycle ==  2 and should be
   ! filled here before calculating HWP
   ! !!WARNING!! IF EBB_DYCLE != 2 and HWP_METHOD = 1 | 3, HWP will not take into account totprcp_24hrs
